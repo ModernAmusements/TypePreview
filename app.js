@@ -11073,45 +11073,76 @@ module.exports = function(module) {
 
     $('.mainheading--desktop').css('font-variation-settings', " 'wght' " + yWeight + ", 'wdth' " + xWidth + '');
   });
-  var is_running = false;
+  /***************************************** device orientation test **********/
+
+  createPermissionModal(); // hidden by default
+
+  var permissionGranted = false;
+  var nonios13device = false;
+  var permissionModal;
   $(document).on('click touchstart', function (event) {
     // Request permission for iOS 13+ devices
-    if (DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
-      DeviceMotionEvent.requestPermission();
-    }
-
-    if (is_running) {
-      console.log('Request permission for iOS 13+ devices');
-      is_running = false;
+    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+      DeviceOrientationEvent.requestPermission()["catch"](function () {
+        // show permission dialog only the first time
+        permissionModal = document.querySelector(".permission-modal-container");
+        permissionModal.style.display = "block";
+        var cancelButton = document.querySelector("#button-cancel");
+        cancelButton.addEventListener("click", function () {
+          permissionModal.remove();
+        });
+        var allowButton = document.querySelector("#button-allow");
+        allowButton.addEventListener("click", onAskButtonClicked);
+        throw error; // keep the promise chain as rejected
+      }).then(function () {
+        // this runs on subsequent visits
+        permissionGranted = true;
+      });
     } else {
-      // mobile cover
-      window.ondevicemotion = function (event) {
-        $('.mainheading').removeClass('mainheading--desktop').addClass('mainheading--mobile'); // access accelaration values and round them
+      // it's up to you how to handle non ios 13 devices
+      nonios13device = true;
+      console.log("non iOS 13 device is being used.");
+    } // will handle first time visiting to grant access
 
-        xAcc = event.accelerationIncludingGravity.x;
-        yAcc = event.accelerationIncludingGravity.y;
-        xAccFixed = (Math.round(xAcc * 10) / 10).toFixed();
-        yAccFixed = (Math.round(yAcc * 10) / 10).toFixed(); // translate values to font axes
-        // reine übertragung von sensoren zu achsen:
-        // xWidthAcc = 400+xAccFixed*10;
-        // yWeightAcc = 60+yAccFixed*2;
-        // übertragung + anpassung der werte für bessere UX:
 
-        xWidthAcc = 500 + xAccFixed * 20;
-        yWeightAcc = 100 + yAccFixed * 4; // $(".mainheading--mobile").css(
-        //   "font-variation-settings",
-        //   " 'wght' " + yWeightAcc +", 'wdth' " + xWidthAcc + ""
-        // );
-        // change font axes
-        // (only if x value is divisable by 20 to reduce jittering)
-
-        if (xWidthAcc % 20 == 0) {
-          $('.mainheading--mobile').css('font-variation-settings', " 'wght' " + yWeightAcc + ", 'wdth' " + xWidthAcc + '');
+    function onAskButtonClicked() {
+      permissionModal.remove();
+      DeviceOrientationEvent.requestPermission().then(function (response) {
+        if (response === "granted") {
+          permissionGranted = true;
+        } else {
+          permissionGranted = false;
         }
-      };
+      })["catch"](console.error);
+    } // mobile cover
 
-      is_running = true;
-    }
+
+    window.ondevicemotion = function (event) {
+      $('.mainheading').removeClass('mainheading--desktop').addClass('mainheading--mobile'); // access accelaration values and round them
+
+      xAcc = event.accelerationIncludingGravity.x;
+      yAcc = event.accelerationIncludingGravity.y;
+      xAccFixed = (Math.round(xAcc * 10) / 10).toFixed();
+      yAccFixed = (Math.round(yAcc * 10) / 10).toFixed(); // translate values to font axes
+      // reine übertragung von sensoren zu achsen:
+      // xWidthAcc = 400+xAccFixed*10;
+      // yWeightAcc = 60+yAccFixed*2;
+      // übertragung + anpassung der werte für bessere UX:
+
+      xWidthAcc = 500 + xAccFixed * 20;
+      yWeightAcc = 100 + yAccFixed * 4; // $(".mainheading--mobile").css(
+      //   "font-variation-settings",
+      //   " 'wght' " + yWeightAcc +", 'wdth' " + xWidthAcc + ""
+      // );
+      // change font axes
+      // (only if x value is divisable by 20 to reduce jittering)
+
+      if (xWidthAcc % 20 == 0) {
+        $('.mainheading--mobile').css('font-variation-settings', " 'wght' " + yWeightAcc + ", 'wdth' " + xWidthAcc + '');
+      }
+    };
+
+    permissionGranted = true;
   }); // SECTION.EXAMPLES
 
   var title = 'Scope – a variable typeface designed to enable typographic interactions';
@@ -15994,6 +16025,39 @@ module.exports = function(module) {
 
 /***/ }),
 
+/***/ "./src/js/permission-modal.js":
+/*!************************************!*\
+  !*** ./src/js/permission-modal.js ***!
+  \************************************/
+/*! no static exports found */
+/***/ (function(module, exports) {
+
+// hide the modal by default
+function createPermissionModal() {
+  // create elements
+  var modalContainerDiv = document.createElement('div');
+  modalContainerDiv.classList.add('permission-modal-container');
+  var descP = document.createElement('p');
+  descP.textContent = "For full experience, please allow access to motion sensors on your device.";
+  var buttonContainerDiv = document.createElement('div');
+  buttonContainerDiv.classList.add('button-container');
+  var cancelButton = document.createElement('button');
+  cancelButton.id = 'button-cancel';
+  cancelButton.textContent = 'Cancel';
+  var allowButton = document.createElement('button');
+  allowButton.id = 'button-allow';
+  allowButton.textContent = 'Allow'; // organize them inside out
+
+  buttonContainerDiv.appendChild(cancelButton);
+  buttonContainerDiv.appendChild(allowButton);
+  modalContainerDiv.appendChild(descP);
+  modalContainerDiv.appendChild(buttonContainerDiv);
+  modalContainerDiv.style.display = 'none';
+  document.body.appendChild(modalContainerDiv);
+}
+
+/***/ }),
+
 /***/ "./src/scss/index.scss":
 /*!*****************************!*\
   !*** ./src/scss/index.scss ***!
@@ -16006,16 +16070,17 @@ module.exports = function(module) {
 /***/ }),
 
 /***/ 0:
-/*!********************************************************************************************************************!*\
-  !*** multi ./src/js/jquery-1.11.0.min.js ./src/js/application.js ./src/js/jquery.history.js ./src/scss/index.scss ***!
-  \********************************************************************************************************************/
+/*!*************************************************************************************************************************************************!*\
+  !*** multi ./src/js/jquery-1.11.0.min.js ./src/js/application.js ./src/js/jquery.history.js ./src/js/permission-modal.js ./src/scss/index.scss ***!
+  \*************************************************************************************************************************************************/
 /*! no static exports found */
 /***/ (function(module, exports, __webpack_require__) {
 
-__webpack_require__(/*! /Users/shady/Desktop/Gyro_Test/src/js/jquery-1.11.0.min.js */"./src/js/jquery-1.11.0.min.js");
-__webpack_require__(/*! /Users/shady/Desktop/Gyro_Test/src/js/application.js */"./src/js/application.js");
-__webpack_require__(/*! /Users/shady/Desktop/Gyro_Test/src/js/jquery.history.js */"./src/js/jquery.history.js");
-module.exports = __webpack_require__(/*! /Users/shady/Desktop/Gyro_Test/src/scss/index.scss */"./src/scss/index.scss");
+__webpack_require__(/*! /Users/shady/Desktop/TypePreview/src/js/jquery-1.11.0.min.js */"./src/js/jquery-1.11.0.min.js");
+__webpack_require__(/*! /Users/shady/Desktop/TypePreview/src/js/application.js */"./src/js/application.js");
+__webpack_require__(/*! /Users/shady/Desktop/TypePreview/src/js/jquery.history.js */"./src/js/jquery.history.js");
+__webpack_require__(/*! /Users/shady/Desktop/TypePreview/src/js/permission-modal.js */"./src/js/permission-modal.js");
+module.exports = __webpack_require__(/*! /Users/shady/Desktop/TypePreview/src/scss/index.scss */"./src/scss/index.scss");
 
 
 /***/ })

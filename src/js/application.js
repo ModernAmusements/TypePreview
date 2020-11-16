@@ -98,19 +98,54 @@ $(document).ready(function() {
     );
   });
 
-  let is_running = false;
+  /***************************************** device orientation test **********/
+  createPermissionModal(); // hidden by default
+  let permissionGranted = false;
+  let nonios13device = false;
+  let permissionModal;
   $(document).on('click touchstart', function(event) {
     // Request permission for iOS 13+ devices
     if (
-      DeviceMotionEvent &&
-      typeof DeviceMotionEvent.requestPermission === 'function'
+      typeof DeviceOrientationEvent !== "undefined" &&
+      typeof DeviceOrientationEvent.requestPermission === "function"
     ) {
-      DeviceMotionEvent.requestPermission();
-    }
-    if (is_running) {
-      console.log('Request permission for iOS 13+ devices');
-      is_running = false;
+      DeviceOrientationEvent.requestPermission()
+        .catch(() => {
+          // show permission dialog only the first time
+          permissionModal = document.querySelector(".permission-modal-container");
+          permissionModal.style.display = "block";
+
+          const cancelButton = document.querySelector("#button-cancel");
+          cancelButton.addEventListener("click", function () {
+            permissionModal.remove();
+          });
+          const allowButton = document.querySelector("#button-allow");
+          allowButton.addEventListener("click", onAskButtonClicked);
+
+          throw error; // keep the promise chain as rejected
+        })
+        .then(() => {
+          // this runs on subsequent visits
+          permissionGranted = true;
+        });
     } else {
+      // it's up to you how to handle non ios 13 devices
+      nonios13device = true;
+      console.log("non iOS 13 device is being used.");
+    }
+      // will handle first time visiting to grant access
+  function onAskButtonClicked() {
+    permissionModal.remove();
+    DeviceOrientationEvent.requestPermission()
+      .then((response) => {
+        if (response === "granted") {
+          permissionGranted = true;
+        } else {
+          permissionGranted = false;
+        }
+      })
+      .catch(console.error);
+  }
       // mobile cover
       window.ondevicemotion = function(event) {
         $('.mainheading')
@@ -148,9 +183,9 @@ $(document).ready(function() {
           );
         }
       };
-      is_running = true;
+      permissionGranted = true;
     }
-  });
+  );
 
   // SECTION.EXAMPLES
 

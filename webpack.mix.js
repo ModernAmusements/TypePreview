@@ -10,6 +10,7 @@ mix.js([
     'src/js/jquery-1.11.0.min.js',
     'src/js/application.js',
     'src/js/jquery.history.js',
+    'src/js/permission-modal.js'
     ], './app.js');
 
 
